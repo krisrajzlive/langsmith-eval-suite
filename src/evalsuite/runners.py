@@ -109,7 +109,9 @@ def run_calibration(prefix: str = "judge-calibration"):
 
     def verdict_target(inputs: dict) -> dict:
         res = correctness(
-            inputs=inputs["question"], outputs=inputs["answer"], reference_outputs=inputs["reference"]
+            inputs={"question": inputs["question"]},
+            outputs={"answer": inputs["answer"]},
+            reference_outputs={"answer": inputs["reference"]},
         )
         return {"verdict": int(bool(res["score"])), "comment": res.get("comment", "")}
 

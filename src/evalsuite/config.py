@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     app_provider: str = "openai"
     app_model: str = "gpt-4o-mini"
     judge_provider: str = "ollama"
-    judge_model: str = "gpt-oss:120b"
+    judge_model: str = "gpt-oss:20b"
     ollama_base_url: str = "https://ollama.com"
 
     embeddings_provider: str = "lexical"

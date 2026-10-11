@@ -65,8 +65,10 @@ def summarize(messages, latency_s: float) -> AgentResult:
         if isinstance(m, AIMessage):
             calls.extend({"name": c["name"], "args": c["args"]} for c in m.tool_calls)
             tokens += (m.usage_metadata or {}).get("total_tokens", 0)
-        elif isinstance(m, ToolMessage) and m.name == SEARCH_TOOL:
-            context.append(str(m.content))
+        elif isinstance(m, ToolMessage):
+            # Evidence documents come from search results and from tools that cite their source document.
+            if m.name == SEARCH_TOOL:
+                context.append(str(m.content))
             for d in DOC_MARKER.findall(str(m.content)):
                 if d not in doc_ids:
                     doc_ids.append(d)

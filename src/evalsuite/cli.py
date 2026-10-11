@@ -10,6 +10,22 @@ from .datasets import DATASET_NAMES, seed_dataset
 from .regression import GateConfig, compare, load_baseline, save_baseline
 
 
+def _report(results) -> None:
+    """Print the experiment name and mean score per metric, with pass counts for boolean checks."""
+    from .regression import metric_means
+    from .runners import score_table
+
+    table = score_table(results)
+    print(f"experiment: {results.experiment_name}  ({len(table)} examples)")
+    for metric, value in sorted(metric_means(table).items()):
+        n = sum(1 for scores in table.values() if metric in scores)
+        print(f"  {metric:<26} {value:6.3f}   (n={n})")
+    binary = {m for m in metric_means(table) if all(s[m] in (0.0, 1.0) for s in table.values() if m in s)}
+    failing = sorted((m, ex) for ex, scores in table.items() for m, v in scores.items() if m in binary and v < 0.5)
+    for metric, example in failing:
+        print(f"  FAIL {metric}: {example}")
+
+
 def _cmd_seed(args) -> int:
     for key in DATASET_NAMES:
         print(f"seeded {seed_dataset(key)}")
@@ -19,22 +35,21 @@ def _cmd_seed(args) -> int:
 def _cmd_benchmark(args) -> int:
     from .runners import run_benchmark
 
-    results = run_benchmark(args.prompt_version, args.prefix)
-    print(f"experiment: {results.experiment_name}")
+    _report(run_benchmark(args.prompt_version, args.prefix))
     return 0
 
 
 def _cmd_trajectory(args) -> int:
     from .runners import run_trajectory
 
-    print(f"experiment: {run_trajectory(args.prompt_version, args.prefix).experiment_name}")
+    _report(run_trajectory(args.prompt_version, args.prefix))
     return 0
 
 
 def _cmd_safety(args) -> int:
     from .runners import run_safety
 
-    print(f"experiment: {run_safety(args.prompt_version, args.prefix).experiment_name}")
+    _report(run_safety(args.prompt_version, args.prefix))
     return 0
 
 

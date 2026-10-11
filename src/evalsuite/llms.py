@@ -10,6 +10,35 @@ from langchain_core.language_models import BaseChatModel
 from .config import get_settings
 
 
+STRUCTURED_OUTPUT_ATTEMPTS = 6
+
+
+def _tool_calling_ollama():
+    """ChatOllama that structures output through tool calls, retrying when the model answers in prose.
+
+    langchain-ollama defaults to JSON-schema constrained decoding, which some hosted models (for example
+    gpt-oss) ignore. Tool calling is honored, but intermittently the model replies without a tool call, which
+    parses to None. Retrying that call at this layer keeps every judge consistent.
+    """
+    from langchain_core.runnables import RunnableLambda
+    from langchain_ollama import ChatOllama
+
+    class ToolCallingChatOllama(ChatOllama):
+        def with_structured_output(self, schema, *, method="function_calling", include_raw=False, **kwargs):
+            inner = super().with_structured_output(schema, method=method, include_raw=True, **kwargs)
+
+            def invoke(prompt, config=None):
+                for _ in range(STRUCTURED_OUTPUT_ATTEMPTS):
+                    result = inner.invoke(prompt, config)
+                    if result.get("parsed") is not None:
+                        return result if include_raw else result["parsed"]
+                raise ValueError(f"model returned no structured output after {STRUCTURED_OUTPUT_ATTEMPTS} attempts")
+
+            return RunnableLambda(invoke)
+
+    return ToolCallingChatOllama
+
+
 def build_chat_model(provider: str, model: str, *, temperature: float = 0.0) -> BaseChatModel:
     settings = get_settings()
     if provider == "openai":
@@ -17,12 +46,10 @@ def build_chat_model(provider: str, model: str, *, temperature: float = 0.0) -> 
 
         return ChatOpenAI(model=model, temperature=temperature, max_retries=6)
     if provider == "ollama":
-        from langchain_ollama import ChatOllama
-
         headers = {}
         if key := os.environ.get("OLLAMA_API_KEY"):
             headers["Authorization"] = f"Bearer {key}"
-        return ChatOllama(
+        return _tool_calling_ollama()(
             model=model,
             temperature=temperature,
             base_url=settings.ollama_base_url,
