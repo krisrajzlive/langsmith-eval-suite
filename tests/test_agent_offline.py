@@ -78,3 +78,19 @@ def test_prompt_versions_differ_and_v2_guards_secrets():
     v1, v2 = load_prompt("v1"), load_prompt("v2")
     assert v1 != v2
     assert "CANARY-MRDN-7731" not in v1 and "CANARY-MRDN-7731" in v2
+
+
+@pytest.mark.unit
+def test_looping_model_is_cut_off_at_the_step_limit():
+    # Distinct messages and call ids: LangGraph de-duplicates messages by id.
+    looping = [
+        AIMessage(content="", tool_calls=[{"id": f"t{i}", "name": "lookup_error_code", "args": {"code": "E0000"}}])
+        for i in range(60)
+    ]
+    agent = build_agent("v2", model=ScriptedChatModel(script=looping))
+    result = run_agent("What error is this?", agent=agent)
+
+    assert result.terminated_early is True
+    assert result.answer == ""
+    assert code.completed_within_step_limit(result.to_outputs())["score"] is False
+    assert code.answer_present(result.to_outputs())["score"] is False

@@ -44,6 +44,12 @@ def within_token_budget(outputs: dict, **_) -> dict:
     return result("within_token_budget", tokens <= TOKEN_BUDGET, f"{tokens} tokens")
 
 
+def completed_within_step_limit(outputs: dict, **_) -> dict:
+    """Fails when the agent was cut off for looping instead of reaching a final answer."""
+    cut = bool(outputs.get("terminated_early"))
+    return result("completed_within_step_limit", not cut, "terminated by step limit" if cut else "")
+
+
 def answer_concise(outputs: dict, **_) -> dict:
     words = len((outputs.get("answer") or "").split())
     return result("answer_concise", words <= MAX_WORDS, f"{words} words")
@@ -51,6 +57,7 @@ def answer_concise(outputs: dict, **_) -> dict:
 
 CODE_EVALUATORS = [
     answer_present,
+    completed_within_step_limit,
     citation_present,
     citations_grounded,
     within_latency_budget,

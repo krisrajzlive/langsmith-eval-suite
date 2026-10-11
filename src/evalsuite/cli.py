@@ -61,7 +61,10 @@ def _cmd_calibrate(args) -> int:
 
 
 def _cmd_regression(args) -> int:
-    """Run the benchmark for a candidate prompt and gate it against the stored baseline."""
+    """Run the benchmark for a candidate prompt and gate it against the stored baseline.
+
+    With --update-baseline the new scores replace the baseline after the comparison is printed.
+    """
     from .evaluators.composite import COMPOSITE_KEY, weighted_score
     from .runners import run_benchmark, score_table
 
@@ -70,16 +73,20 @@ def _cmd_regression(args) -> int:
         print(f"no baseline at {baseline_path}; run with --update-baseline first", file=sys.stderr)
         return 2
     results = run_benchmark(args.prompt_version, args.prefix or f"regression-{args.prompt_version}")
+    _report(results)
     table = score_table(results)
     for scores in table.values():
         scores[COMPOSITE_KEY] = weighted_score(scores)
+    exit_code = 0
+    if baseline_path.exists():
+        report = compare(load_baseline(baseline_path), table, GateConfig(max_mean_drop=args.max_drop))
+        print(report.render())
+        exit_code = 0 if report.passed else 1
     if args.update_baseline:
         save_baseline(baseline_path, table, {"prompt_version": args.prompt_version, "experiment": results.experiment_name})
         print(f"baseline written to {baseline_path}")
         return 0
-    report = compare(load_baseline(baseline_path), table, GateConfig(max_mean_drop=args.max_drop))
-    print(report.render())
-    return 0 if report.passed else 1
+    return exit_code
 
 
 def _cmd_pairwise(args) -> int:

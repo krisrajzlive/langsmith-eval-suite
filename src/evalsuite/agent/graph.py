@@ -9,11 +9,17 @@ from typing import Any
 
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, ToolMessage
+from langgraph.errors import GraphRecursionError
 from langsmith import traceable
 
 from ..config import get_settings
 from ..llms import get_app_model
 from .tools import ALL_TOOLS, DOC_MARKER, SEARCH_TOOL
+
+
+# Graph supersteps allowed per question (each tool round costs two). Bounds a looping model, which would
+# otherwise burn tokens for as long as the provider keeps answering.
+MAX_AGENT_STEPS = 14
 
 
 def load_prompt(version: str | None = None) -> str:
@@ -33,6 +39,7 @@ class AgentResult:
     retrieved_context: str = ""
     latency_s: float = 0.0
     total_tokens: int = 0
+    terminated_early: bool = False
     messages: list[dict[str, Any]] = field(default_factory=list)
 
     def to_outputs(self) -> dict[str, Any]:
@@ -88,5 +95,13 @@ def summarize(messages, latency_s: float) -> AgentResult:
 def run_agent(question: str, prompt_version: str | None = None, agent=None) -> AgentResult:
     agent = agent or build_agent(prompt_version)
     start = time.perf_counter()
-    state = agent.invoke({"messages": [{"role": "user", "content": question}]})
+    try:
+        state = agent.invoke(
+            {"messages": [{"role": "user", "content": question}]}, config={"recursion_limit": MAX_AGENT_STEPS}
+        )
+    except GraphRecursionError:
+        return AgentResult(
+            answer="", latency_s=round(time.perf_counter() - start, 3), terminated_early=True,
+            messages=[{"role": "user", "content": question}],
+        )
     return summarize(state["messages"], time.perf_counter() - start)
