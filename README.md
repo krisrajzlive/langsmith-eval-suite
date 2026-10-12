@@ -23,6 +23,9 @@ there is no dependency on production traces.
 | Composite score | One weighted quality number for gating and dashboards | Weighted feedback aggregation | `python -m evalsuite.cli composite EXPERIMENT` |
 | Judge calibration | Whether the LLM judge agrees with human labels | Accuracy, TPR/TNR, Cohen's kappa | `make calibrate` |
 
+Prompt-injection defenses (an input guard and an escalation policy) and their measured effect are described in
+[docs/guard-evaluation.md](docs/guard-evaluation.md).
+
 See [docs/eval-strategy.md](docs/eval-strategy.md) for the rationale, thresholds and how to extend each type.
 
 ## Layout

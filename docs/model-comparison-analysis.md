@@ -63,3 +63,11 @@ python -m evalsuite.cli calibrate --judge bedrock:mistral.mistral-large-3-675b-i
 python -m evalsuite.cli matrix --judge bedrock:mistral.mistral-large-3-675b-instruct \
   --models "bedrock:amazon.nova-micro-v1:0,bedrock:openai.gpt-oss-20b-1:0,openai:gpt-4o-mini" --prompt-version v2
 ```
+
+## Update: reasoning-block fix and injection guard
+
+After these runs, two harness problems were found and fixed: reasoning blocks from gpt-oss, Kimi and MiniMax were
+being included in answers, and the safety judge misgraded correct answers for some judge models. The gpt-oss-120b
+correctness lead held after the fix (0.96); MiniMax's correctness was overstated (0.88 corrected to 0.79). The
+model-independent injection defenses and their results are in [guard-evaluation.md](guard-evaluation.md): with them,
+all 11 models are leak-free and open no injected tickets on the safety set.
