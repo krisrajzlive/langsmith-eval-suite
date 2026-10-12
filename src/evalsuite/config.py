@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     judge_provider: str = "ollama"
     judge_model: str = "gpt-oss:20b"
     ollama_base_url: str = "https://ollama.com"
+    aws_region: str = "us-east-1"
 
     embeddings_provider: str = "lexical"
     embeddings_model: str = "sentence-transformers/all-MiniLM-L6-v2"
@@ -29,6 +30,8 @@ class Settings(BaseSettings):
 
     eval_max_concurrency: int = 2
     eval_num_repetitions: int = 1
+    # Judge calls dominate trace volume; disable their tracing to stay under free-tier ingestion limits.
+    eval_trace_evaluators: bool = True
 
     corpus_dir: Path = ROOT / "data" / "corpus"
     prompts_dir: Path = ROOT / "prompts"

@@ -53,14 +53,14 @@ cp .env.example .env                                # then fill in your own keys
 ```
 
 Providers are selected through environment variables (see `.env.example`): the application model, the judge
-model and the embeddings can each use OpenAI, Ollama (hosted API) or Hugging Face. Use a judge from a
+model and the embeddings can each use OpenAI, Ollama (hosted API), Hugging Face or AWS Bedrock. Use a judge from a
 different model family than the application. The default embeddings are an offline TF-IDF retriever, so
 retrieval evals need no embedding quota.
 
 ## Running
 
 ```bash
-make test           # 39 deterministic tests, no credentials needed
+make test           # deterministic tests, no credentials needed
 make seed           # upsert datasets into LangSmith
 make benchmark      # correctness, RAG quality, retrieval, format
 make trajectory
@@ -71,6 +71,21 @@ make regression PROMPT=v1   # gate a candidate against the baseline
 ```
 
 Without `make`, use `python -m evalsuite.cli <command>`; see `--help`.
+
+### Comparing application models
+
+```bash
+python -m evalsuite.cli calibrate --judge bedrock:mistral.mistral-large-3-675b-instruct   # vet a judge first
+python -m evalsuite.cli matrix \
+  --models "bedrock:amazon.nova-lite-v1:0,bedrock:amazon.nova-pro-v1:0,openai:gpt-4o-mini" \
+  --prompt-version v2
+```
+
+`matrix` runs the benchmark, trajectory and safety suites for every model with the judge held fixed, records each
+run as a LangSmith experiment, and writes [docs/model-comparison.md](docs/model-comparison.md). A model that cannot
+complete a suite is reported as a failure instead of aborting the run. Set `EVAL_TRACE_EVALUATORS=false` on free
+LangSmith tiers to cut trace volume. Keep the judge in a different model family from the model being scored, and
+treat gaps under about 0.1 as noise unless you raise `EVAL_NUM_REPETITIONS`.
 
 Free-tier providers are rate limited. Concurrency and repetitions are controlled by `EVAL_MAX_CONCURRENCY` and
 `EVAL_NUM_REPETITIONS`, and `make test-live` caches model responses between runs.

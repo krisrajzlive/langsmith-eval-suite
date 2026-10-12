@@ -6,12 +6,14 @@ import math
 
 COMPOSITE_KEY = "composite_quality"
 
-# Correctness dominates; grounding and citation discipline protect against fluent but unsupported answers.
+# Correctness dominates. Citation presence and grounding are weighted separately: grounding is skipped for
+# answers without citations, so presence is what penalizes an uncited answer.
 DEFAULT_WEIGHTS: dict[str, float] = {
-    "correctness": 0.40,
-    "groundedness": 0.25,
+    "correctness": 0.35,
+    "groundedness": 0.20,
     "helpfulness": 0.10,
-    "citations_grounded": 0.15,
+    "citation_present": 0.15,
+    "citations_grounded": 0.10,
     "answer_concise": 0.10,
 }
 

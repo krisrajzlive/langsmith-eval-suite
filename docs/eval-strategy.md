@@ -63,8 +63,8 @@ For subjective quality, two finished experiments are compared with a judge that 
 example. Order is randomized to counter position bias.
 
 ### Composite score
-`composite_quality` is a weighted average of correctness (0.40), groundedness (0.25), citation grounding
-(0.15), helpfulness (0.10) and concision (0.10), renormalized over the metrics present for each example.
+`composite_quality` is a weighted average of correctness (0.35), groundedness (0.20), citation presence (0.15),
+helpfulness (0.10), citation grounding (0.10) and concision (0.10), renormalized over the metrics present for each example.
 Weights live in `evaluators/composite.py`. Use it for a single trend line, not instead of the component metrics.
 
 ### Judge calibration

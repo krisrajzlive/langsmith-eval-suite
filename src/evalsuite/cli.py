@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from .config import get_settings
 from .datasets import DATASET_NAMES, seed_dataset
@@ -56,7 +57,35 @@ def _cmd_safety(args) -> int:
 def _cmd_calibrate(args) -> int:
     from .runners import run_calibration
 
-    print(f"experiment: {run_calibration().experiment_name}")
+    results = run_calibration(prefix=args.prefix or "judge-calibration", judge=args.judge)
+    rows = [i["evaluation_results"]["results"][0].score for i in results]
+    print(f"experiment: {results.experiment_name}")
+    print(f"  judge agrees with humans on {sum(map(bool, rows))}/{len(rows)}")
+    return 0
+
+
+def _cmd_matrix(args) -> int:
+    from datetime import datetime, timezone
+
+    from .matrix import run_matrix, save
+
+    s = get_settings()
+    specs = [m.strip() for m in args.models.split(",") if m.strip()]
+    suites = [m.strip() for m in args.suites.split(",") if m.strip()]
+    meta = {
+        "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+        "prompt_version": args.prompt_version,
+        "judge": args.judge or f"{s.judge_provider}:{s.judge_model}",
+        "repetitions": s.eval_num_repetitions,
+    }
+    done: list = []
+
+    def checkpoint(row) -> None:
+        done.append(row)
+        save(done, meta, s.baselines_dir.parent / "results", args.report)  # partial results survive a crash
+
+    run_matrix(specs, suites, args.prompt_version, args.judge, on_result=checkpoint)
+    print(f"report written to {args.report}")
     return 0
 
 
@@ -123,7 +152,18 @@ def build_parser() -> argparse.ArgumentParser:
             p.add_argument("--max-drop", type=float, default=GateConfig().max_mean_drop)
         p.set_defaults(fn=fn)
 
-    sub.add_parser("calibrate", help="Measure LLM-judge agreement with human labels").set_defaults(fn=_cmd_calibrate)
+    p = sub.add_parser("calibrate", help="Measure LLM-judge agreement with human labels")
+    p.add_argument("--judge", default=None, help="provider:model to calibrate (default: configured judge)")
+    p.add_argument("--prefix", default=None)
+    p.set_defaults(fn=_cmd_calibrate)
+
+    p = sub.add_parser("matrix", help="Compare several application models on the same suites")
+    p.add_argument("--models", required=True, help="comma-separated provider:model specs")
+    p.add_argument("--suites", default="benchmark,trajectory,safety")
+    p.add_argument("--prompt-version", default=get_settings().agent_prompt_version)
+    p.add_argument("--judge", default=None, help="provider:model held fixed across rows")
+    p.add_argument("--report", type=Path, default=Path("docs/model-comparison.md"))
+    p.set_defaults(fn=_cmd_matrix)
 
     p = sub.add_parser("pairwise", help="Compare two finished experiments with a pairwise judge")
     p.add_argument("experiment_a")

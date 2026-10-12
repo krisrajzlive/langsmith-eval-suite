@@ -55,6 +55,13 @@ def build_chat_model(provider: str, model: str, *, temperature: float = 0.0) -> 
             base_url=settings.ollama_base_url,
             client_kwargs={"headers": headers},
         )
+    if provider == "bedrock":
+        from langchain_aws import ChatBedrockConverse
+
+        # Credentials come from the standard AWS environment variables or profile; nothing is stored here.
+        return ChatBedrockConverse(
+            model=model, temperature=temperature, region_name=settings.aws_region, max_tokens=2048
+        )
     if provider == "huggingface":
         from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 
