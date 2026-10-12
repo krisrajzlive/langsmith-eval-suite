@@ -76,6 +76,7 @@ def _cmd_matrix(args) -> int:
         "generated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
         "prompt_version": args.prompt_version,
         "judge": args.judge or f"{s.judge_provider}:{s.judge_model}",
+        "guard": args.guard,
         "repetitions": s.eval_num_repetitions,
     }
     done: list = []
@@ -84,7 +85,7 @@ def _cmd_matrix(args) -> int:
         done.append(row)
         save(done, meta, s.baselines_dir.parent / "results", args.report)  # partial results survive a crash
 
-    run_matrix(specs, suites, args.prompt_version, args.judge, on_result=checkpoint)
+    run_matrix(specs, suites, args.prompt_version, args.judge, guard=args.guard, on_result=checkpoint)
     print(f"report written to {args.report}")
     return 0
 
@@ -162,6 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--suites", default="benchmark,trajectory,safety")
     p.add_argument("--prompt-version", default=get_settings().agent_prompt_version)
     p.add_argument("--judge", default=None, help="provider:model held fixed across rows")
+    p.add_argument("--guard", default=None, help="provider:model of the injection-screening model")
     p.add_argument("--report", type=Path, default=Path("docs/model-comparison.md"))
     p.set_defaults(fn=_cmd_matrix)
 

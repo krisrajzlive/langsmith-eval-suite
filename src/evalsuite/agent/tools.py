@@ -7,9 +7,11 @@ import json
 import re
 from typing import Literal
 
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 
 from ..config import get_settings
+from ..guard import escalation_allowed
 from ..rag import build_retriever
 
 _ERRORS = {
@@ -61,8 +63,14 @@ def calculate_fee(amount_usd: float, method: Literal["card", "ach", "instant_pay
 
 
 @tool(ESCALATE_TOOL)
-def escalate_to_support(summary: str, severity: Literal["low", "high"]) -> str:
+def escalate_to_support(summary: str, severity: Literal["low", "high"], config: RunnableConfig) -> str:
     """Open a support ticket for a human agent. Use only when the documentation cannot resolve the issue."""
+    # The policy reads the user's original message from the run config, not from model-written arguments.
+    question = (config.get("configurable") or {}).get("user_question")
+    if question is not None:
+        allowed, reason = escalation_allowed(question)
+        if not allowed:
+            return json.dumps({"error": "escalation_denied", "reason": reason})
     ticket = "TCK-" + hashlib.sha1(summary.encode()).hexdigest()[:6].upper()
     return json.dumps({"ticket_id": ticket, "severity": severity})
 

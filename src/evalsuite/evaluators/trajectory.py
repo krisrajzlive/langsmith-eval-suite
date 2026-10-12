@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from agentevals.trajectory.match import create_trajectory_match_evaluator
 
+from .code import not_blocked_by_guard
 from .common import result
 
 MAX_TOOL_CALLS = 5
@@ -48,4 +49,4 @@ def tool_call_efficiency(outputs: dict, **_) -> dict:
     return result("tool_call_efficiency", n <= MAX_TOOL_CALLS, f"{n} tool calls")
 
 
-TRAJECTORY_EVALUATORS = [tool_trajectory_match, forbidden_tools_avoided, tool_call_efficiency]
+TRAJECTORY_EVALUATORS = [tool_trajectory_match, forbidden_tools_avoided, tool_call_efficiency, not_blocked_by_guard]

@@ -13,6 +13,7 @@ from langgraph.errors import GraphRecursionError
 from langsmith import traceable
 
 from ..config import get_settings
+from ..guard import REFUSAL, InputGuard
 from ..llms import get_app_model
 from .tools import ALL_TOOLS, DOC_MARKER, SEARCH_TOOL
 
@@ -40,10 +41,26 @@ class AgentResult:
     latency_s: float = 0.0
     total_tokens: int = 0
     terminated_early: bool = False
+    guard_flagged: bool = False
+    guard_blocked: bool = False
+    guard_error: str = ""
     messages: list[dict[str, Any]] = field(default_factory=list)
 
     def to_outputs(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def message_text(content: Any) -> str:
+    """Visible text of a message. Reasoning models return a list of typed blocks; only `text` blocks are the reply."""
+    if isinstance(content, str):
+        return content
+    parts: list[str] = []
+    for block in content or []:
+        if isinstance(block, str):
+            parts.append(block)
+        elif isinstance(block, dict) and block.get("type") == "text":
+            parts.append(block.get("text", ""))
+    return "".join(parts)
 
 
 def to_openai_messages(messages) -> list[dict[str, Any]]:
@@ -53,7 +70,7 @@ def to_openai_messages(messages) -> list[dict[str, Any]]:
         if m.type == "human":
             out.append({"role": "user", "content": str(m.content)})
         elif isinstance(m, AIMessage):
-            msg: dict[str, Any] = {"role": "assistant", "content": str(m.content or "")}
+            msg: dict[str, Any] = {"role": "assistant", "content": message_text(m.content)}
             if m.tool_calls:
                 msg["tool_calls"] = [
                     {"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": json.dumps(c["args"])}}
@@ -79,7 +96,7 @@ def summarize(messages, latency_s: float) -> AgentResult:
             for d in DOC_MARKER.findall(str(m.content)):
                 if d not in doc_ids:
                     doc_ids.append(d)
-    final = next((str(m.content) for m in reversed(messages) if isinstance(m, AIMessage) and not m.tool_calls), "")
+    final = next((message_text(m.content) for m in reversed(messages) if isinstance(m, AIMessage) and not m.tool_calls), "")
     return AgentResult(
         answer=final,
         tool_calls=calls,
@@ -92,16 +109,27 @@ def summarize(messages, latency_s: float) -> AgentResult:
 
 
 @traceable(name="support_agent")
-def run_agent(question: str, prompt_version: str | None = None, agent=None) -> AgentResult:
-    agent = agent or build_agent(prompt_version)
+def run_agent(question: str, prompt_version: str | None = None, agent=None, guard: InputGuard | None = None) -> AgentResult:
+    """Answer one question. With a guard, injected instructions are removed before the agent sees the message."""
     start = time.perf_counter()
+    decision = guard.check(question) if guard else None
+    if decision and decision.blocked:
+        return AgentResult(
+            answer=REFUSAL, latency_s=round(time.perf_counter() - start, 3), guard_flagged=decision.flagged,
+            guard_blocked=True, guard_error=decision.error, messages=[{"role": "user", "content": question}],
+        )
+    agent = agent or build_agent(prompt_version)
+    agent_input = decision.text if decision else question
     try:
         state = agent.invoke(
-            {"messages": [{"role": "user", "content": question}]}, config={"recursion_limit": MAX_AGENT_STEPS}
+            {"messages": [{"role": "user", "content": agent_input}]},
+            config={"recursion_limit": MAX_AGENT_STEPS, "configurable": {"user_question": question}},
         )
     except GraphRecursionError:
         return AgentResult(
             answer="", latency_s=round(time.perf_counter() - start, 3), terminated_early=True,
-            messages=[{"role": "user", "content": question}],
+            guard_flagged=bool(decision and decision.flagged), messages=[{"role": "user", "content": question}],
         )
-    return summarize(state["messages"], time.perf_counter() - start)
+    result = summarize(state["messages"], time.perf_counter() - start)
+    result.guard_flagged = bool(decision and decision.flagged)
+    return result

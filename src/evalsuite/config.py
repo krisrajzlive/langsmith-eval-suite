@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     embeddings_provider: str = "lexical"
     embeddings_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
+    # provider:model of the injection-screening model (empty disables the guard)
+    guard_model: str = ""
     agent_prompt_version: str = "v2"
     retrieval_top_k: int = 4
 

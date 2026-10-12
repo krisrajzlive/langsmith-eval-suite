@@ -52,12 +52,12 @@ def slug(spec: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", spec.lower()).strip("-")
 
 
-def _run_suite(name: str, spec: str, prompt_version: str, judge: str | None):
-    return SUITES[name](prompt_version, prefix=f"{name}-{slug(spec)}", app=spec, judge=judge)
+def _run_suite(name: str, spec: str, prompt_version: str, judge: str | None, guard: str | None, tag: str):
+    return SUITES[name](prompt_version, prefix=f"{name}-{slug(spec)}{tag}", app=spec, judge=judge, guard=guard)
 
 
 def run_matrix(specs: list[str], suites: list[str], prompt_version: str, judge: str | None = None,
-               on_result: Callable[[ModelResult], None] | None = None) -> list[ModelResult]:
+               guard: str | None = None, on_result: Callable[[ModelResult], None] | None = None) -> list[ModelResult]:
     results: list[ModelResult] = []
     for spec in specs:
         row = ModelResult(spec)
@@ -66,7 +66,7 @@ def run_matrix(specs: list[str], suites: list[str], prompt_version: str, judge: 
         for suite in suites:
             started = time.time()
             try:
-                exp = _run_suite(suite, spec, prompt_version, judge)
+                exp = _run_suite(suite, spec, prompt_version, judge, guard, "-guarded" if guard else "")
                 table = score_table(exp)
                 if suite == "benchmark":
                     for scores in table.values():
@@ -106,6 +106,7 @@ def render_markdown(results: list[ModelResult], meta: dict) -> str:
         "# Application model comparison",
         "",
         f"Generated {meta['generated']} - prompt `{meta['prompt_version']}` - judge `{meta['judge']}` - "
+        f"guard `{meta.get('guard') or 'none'}` - "
         f"repetitions {meta['repetitions']}.",
         "",
         "| " + " | ".join(header) + " |",
@@ -132,7 +133,7 @@ def render_markdown(results: list[ModelResult], meta: dict) -> str:
 def save(results: list[ModelResult], meta: dict, out_dir: Path, report_path: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    (out_dir / f"matrix-{stamp}.json").write_text(
+    (out_dir / f"matrix-{stamp}-{slug(results[0].spec)[-24:]}-{len(results)}.json").write_text(
         json.dumps({"meta": meta, "results": [r.__dict__ for r in results]}, indent=2), encoding="utf-8"
     )
     report_path.parent.mkdir(parents=True, exist_ok=True)

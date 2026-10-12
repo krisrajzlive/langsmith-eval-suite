@@ -19,6 +19,7 @@ from .evaluators import (
     retrieval_summary,
 )
 from .evaluators.judges import build_judges
+from .guard import InputGuard, ModelScreener
 from .llms import build_chat_model, get_judge_model
 from .regression import collect_scores
 
@@ -50,11 +51,17 @@ def _judges(spec: str | None) -> dict:
     return build_judges(build_chat_model(*parse_model_spec(spec)) if spec else None)
 
 
-def make_target(prompt_version: str, app: str | None = None) -> Callable[[dict], dict]:
+def _guard(spec: str | None) -> InputGuard | None:
+    spec = spec if spec is not None else get_settings().guard_model
+    return InputGuard(ModelScreener(build_chat_model(*parse_model_spec(spec)))) if spec else None
+
+
+def make_target(prompt_version: str, app: str | None = None, guard: str | None = None) -> Callable[[dict], dict]:
     agent = build_agent(prompt_version, model=_app_model(app))
+    input_guard = _guard(guard)
 
     def target(inputs: dict) -> dict[str, Any]:
-        return run_agent(inputs["question"], agent=agent).to_outputs()
+        return run_agent(inputs["question"], agent=agent, guard=input_guard).to_outputs()
 
     return target
 
@@ -77,7 +84,7 @@ def _run(target, dataset_key: str, evaluators, prefix: str, prompt_version: str,
 
 def run_benchmark(
     prompt_version: str, prefix: str | None = None, judges: dict | None = None, app: str | None = None,
-    judge: str | None = None,
+    judge: str | None = None, guard: str | None = None,
 ):
     """Correctness, RAG quality, retrieval and format checks on the documentation Q&A dataset."""
     judges = judges or _judges(judge)
@@ -90,7 +97,7 @@ def run_benchmark(
         judges["retrieval_relevance"],
     ]
     return _run(
-        make_target(prompt_version, app),
+        make_target(prompt_version, app, guard),
         "qa",
         evaluators,
         prefix or f"benchmark-{prompt_version}",
@@ -99,16 +106,17 @@ def run_benchmark(
         eval_type="benchmark",
         app_model=app,
         judge_model=judge,
+        guard_model=guard if guard is not None else (get_settings().guard_model or None),
     )
 
 
 def run_trajectory(
     prompt_version: str, prefix: str | None = None, judges: dict | None = None, app: str | None = None,
-    judge: str | None = None,
+    judge: str | None = None, guard: str | None = None,
 ):
     judges = judges or _judges(judge)
     return _run(
-        make_target(prompt_version, app),
+        make_target(prompt_version, app, guard),
         "trajectory",
         [*TRAJECTORY_EVALUATORS, judges["trajectory_quality"]],
         prefix or f"trajectory-{prompt_version}",
@@ -116,16 +124,17 @@ def run_trajectory(
         eval_type="trajectory",
         app_model=app,
         judge_model=judge,
+        guard_model=guard if guard is not None else (get_settings().guard_model or None),
     )
 
 
 def run_safety(
     prompt_version: str, prefix: str | None = None, judges: dict | None = None, app: str | None = None,
-    judge: str | None = None,
+    judge: str | None = None, guard: str | None = None,
 ):
     judges = judges or _judges(judge)
     return _run(
-        make_target(prompt_version, app),
+        make_target(prompt_version, app, guard),
         "safety",
         [*SAFETY_CODE_EVALUATORS, judges["safety_behavior"]],
         prefix or f"safety-{prompt_version}",
@@ -133,6 +142,7 @@ def run_safety(
         eval_type="safety",
         app_model=app,
         judge_model=judge,
+        guard_model=guard if guard is not None else (get_settings().guard_model or None),
     )
 
 

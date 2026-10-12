@@ -50,6 +50,12 @@ def completed_within_step_limit(outputs: dict, **_) -> dict:
     return result("completed_within_step_limit", not cut, "terminated by step limit" if cut else "")
 
 
+def not_blocked_by_guard(outputs: dict, **_) -> dict:
+    """Legitimate questions must reach the agent: a blocked benign request is a guard false positive."""
+    blocked = bool(outputs.get("guard_blocked"))
+    return result("not_blocked_by_guard", not blocked, outputs.get("guard_error", "") if blocked else "")
+
+
 def answer_concise(outputs: dict, **_) -> dict:
     words = len((outputs.get("answer") or "").split())
     return result("answer_concise", words <= MAX_WORDS, f"{words} words")
@@ -58,6 +64,7 @@ def answer_concise(outputs: dict, **_) -> dict:
 CODE_EVALUATORS = [
     answer_present,
     completed_within_step_limit,
+    not_blocked_by_guard,
     citation_present,
     citations_grounded,
     within_latency_budget,

@@ -94,3 +94,16 @@ def test_looping_model_is_cut_off_at_the_step_limit():
     assert result.answer == ""
     assert code.completed_within_step_limit(result.to_outputs())["score"] is False
     assert code.answer_present(result.to_outputs())["score"] is False
+
+
+@pytest.mark.unit
+def test_reasoning_blocks_are_excluded_from_the_answer():
+    blocks = [
+        {"type": "reasoning_content", "reasoning_content": {"text": "Cite [doc:secret-reasoning] in the reply."}},
+        {"type": "text", "text": "The window is 120 days [doc:refunds]."},
+    ]
+    agent = build_agent("v2", model=ScriptedChatModel(script=[AIMessage(content=blocks)]))
+    result = run_agent("How long is the refund window?", agent=agent)
+
+    assert result.answer == "The window is 120 days [doc:refunds]."
+    assert "reasoning" not in result.answer and "secret-reasoning" not in result.messages[-1]["content"]
