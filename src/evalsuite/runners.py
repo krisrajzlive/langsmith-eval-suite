@@ -178,9 +178,13 @@ class _Preference(BaseModel):
     preference: int = Field(description="1 if answer A is better, 2 if answer B is better, 0 if equal")
 
 
+_PAIRWISE_CRITERIA = {
+    "default": "more accurate with respect to the reference, better grounded in documentation (cites sources), and more concise",
+    "accuracy": "more accurate and complete with respect to the reference, and more concise. Ignore citations and formatting",
+}
+
 _PAIRWISE_PROMPT = """You are comparing two answers from a Meridian Payments documentation assistant.
-Prefer the answer that is more accurate with respect to the reference, better grounded in documentation
-(cites sources), and more concise. Do not prefer an answer because of its position.
+Prefer the answer that is {criteria}. Do not prefer an answer because of its position.
 
 Question: {question}
 Reference answer: {reference}
@@ -191,13 +195,17 @@ Answer B: {b}
 """
 
 
-def run_pairwise(experiment_a: str, experiment_b: str, prefix: str = "pairwise"):
+def run_pairwise(
+    experiment_a: str, experiment_b: str, prefix: str = "pairwise", judge: str | None = None, rubric: str = "default"
+):
     """Compare two finished experiments example by example with a position-randomized LLM judge."""
-    chain = get_judge_model().with_structured_output(_Preference)
+    model = build_chat_model(*parse_model_spec(judge)) if judge else get_judge_model()
+    chain = model.with_structured_output(_Preference)
 
     def ranked_preference(inputs: dict, outputs: list[dict], reference_outputs: dict) -> list[int]:
         verdict = chain.invoke(
             _PAIRWISE_PROMPT.format(
+                criteria=_PAIRWISE_CRITERIA[rubric],
                 question=inputs["question"],
                 reference=reference_outputs.get("answer", "n/a"),
                 a=outputs[0].get("answer", "N/A"),

@@ -19,7 +19,7 @@ there is no dependency on production traces.
 | Agent trajectory | Correct tools, no forbidden tools, bounded tool calls, trajectory quality | `agentevals` match modes + LLM judge | `make trajectory` |
 | Safety and robustness | Prompt-leak canary, injected instructions, secret/PII handling, scope refusal | Code checks + LLM judge | `make safety` |
 | Regression gate | A candidate prompt/model must not break cases the baseline passes | Per-example comparison to a stored baseline | `make regression` |
-| Pairwise comparison | Version A vs version B on answer quality | Position-randomized pairwise judge | `python -m evalsuite.cli pairwise A B` |
+| Pairwise comparison | Version A vs version B on answer quality | Position-randomized pairwise judge, two rubrics | `python -m evalsuite.cli pairwise A B --rubric accuracy` ([results](docs/pairwise-evaluation.md)) |
 | Composite score | One weighted quality number for gating and dashboards | Weighted feedback aggregation | `python -m evalsuite.cli composite EXPERIMENT` |
 | Judge calibration | Whether the LLM judge agrees with human labels | Accuracy, TPR/TNR, Cohen's kappa | `make calibrate` |
 

@@ -132,7 +132,7 @@ def _cmd_regression(args) -> int:
 def _cmd_pairwise(args) -> int:
     from .runners import run_pairwise
 
-    print(f"experiment: {run_pairwise(args.experiment_a, args.experiment_b).experiment_name}")
+    print(f"experiment: {run_pairwise(args.experiment_a, args.experiment_b, judge=args.judge, rubric=args.rubric).experiment_name}")
     return 0
 
 
@@ -187,6 +187,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("pairwise", help="Compare two finished experiments with a pairwise judge")
     p.add_argument("experiment_a")
     p.add_argument("experiment_b")
+    p.add_argument("--judge", default=None, help="provider:model of the pairwise judge")
+    p.add_argument("--rubric", choices=["default", "accuracy"], default="default", help="accuracy ignores citations")
     p.set_defaults(fn=_cmd_pairwise)
 
     p = sub.add_parser("composite", help="Write weighted composite feedback onto a finished experiment")

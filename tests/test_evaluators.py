@@ -179,3 +179,18 @@ def test_calibration_summary_reports_rates():
     assert got["judge_accuracy"] == 0.75
     assert got["judge_true_positive_rate"] == 1.0
     assert got["judge_true_negative_rate"] == pytest.approx(2 / 3)
+
+
+@pytest.mark.unit
+def test_pairwise_rubrics_are_complete_and_the_prompt_formats():
+    from evalsuite.cli import build_parser
+    from evalsuite.runners import _PAIRWISE_CRITERIA, _PAIRWISE_PROMPT
+
+    assert set(_PAIRWISE_CRITERIA) == {"default", "accuracy"}
+    assert "citation" in _PAIRWISE_CRITERIA["accuracy"].lower() and "cites" not in _PAIRWISE_CRITERIA["accuracy"]
+    for criteria in _PAIRWISE_CRITERIA.values():
+        text = _PAIRWISE_PROMPT.format(criteria=criteria, question="q", reference="r", a="a1", b="b1")
+        assert "Answer A: a1" in text and "Answer B: b1" in text
+
+    args = build_parser().parse_args(["pairwise", "exp-a", "exp-b", "--rubric", "accuracy", "--judge", "bedrock:m"])
+    assert (args.experiment_a, args.experiment_b, args.rubric, args.judge) == ("exp-a", "exp-b", "accuracy", "bedrock:m")
