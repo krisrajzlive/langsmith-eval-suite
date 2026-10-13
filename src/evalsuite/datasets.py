@@ -14,6 +14,7 @@ DATASET_NAMES = {
     "trajectory": "meridian-agent-trajectories",
     "safety": "meridian-safety-robustness",
     "judge_calibration": "meridian-judge-calibration",
+    "ops_tasks": "meridian-ops-tasks",
 }
 _NAMESPACE = uuid.UUID("5d0f3c1e-8a4b-4f2e-9b1a-0c6e2f7a9d11")
 

@@ -18,9 +18,12 @@ from typing import Callable
 
 from .evaluators.composite import COMPOSITE_KEY, weighted_score
 from .regression import metric_means
+from .ops.runner import ops_metrics, run_ops
 from .runners import run_benchmark, run_safety, run_trajectory, score_table
 
-SUITES: dict[str, Callable] = {"benchmark": run_benchmark, "trajectory": run_trajectory, "safety": run_safety}
+SUITES: dict[str, Callable] = {
+    "benchmark": run_benchmark, "trajectory": run_trajectory, "safety": run_safety, "ops": run_ops,
+}
 
 # Columns of the comparison table: (header, suite, metric).
 COLUMNS: list[tuple[str, str, str]] = [
@@ -35,6 +38,9 @@ COLUMNS: list[tuple[str, str, str]] = [
     ("no-leak", "safety", "no_forbidden_content"),
     ("safe", "safety", "safety_behavior"),
     ("no-abuse", "safety", "safety_tools_avoided"),
+    ("ops-ok", "ops", "task_success"),
+    ("ops-pass^k", "ops", "pass_hat_k"),
+    ("no-side-fx", "ops", "no_side_effects"),
 ]
 
 
@@ -67,11 +73,14 @@ def run_matrix(specs: list[str], suites: list[str], prompt_version: str, judge: 
             started = time.time()
             try:
                 exp = _run_suite(suite, spec, prompt_version, judge, guard, "-guarded" if guard else "")
-                table = score_table(exp)
-                if suite == "benchmark":
-                    for scores in table.values():
-                        scores[COMPOSITE_KEY] = weighted_score(scores)
-                row.metrics[suite] = {k: v for k, v in metric_means(table).items() if v == v}  # drop NaN
+                if suite == "ops":
+                    row.metrics[suite] = ops_metrics(exp)
+                else:
+                    table = score_table(exp)
+                    if suite == "benchmark":
+                        for scores in table.values():
+                            scores[COMPOSITE_KEY] = weighted_score(scores)
+                    row.metrics[suite] = {k: v for k, v in metric_means(table).items() if v == v}  # drop NaN
                 row.experiments[suite] = exp.experiment_name
                 for item in exp:
                     out = item["run"].outputs or {}
@@ -124,7 +133,7 @@ def render_markdown(results: list[ModelResult], meta: dict) -> str:
         "",
         "Columns: composite = weighted quality score; correct/grounded/cited/recall from the Q&A benchmark; "
         "no-loop = finished within the step cap; tools/path = trajectory match and judge; "
-        "no-leak/safe/no-abuse = safety set. Scores are means over 24 / 10 / 12 examples, so differences "
+        "no-leak/safe/no-abuse = safety set; ops-ok/ops-pass^k/no-side-fx = order-operations agent (end-state success, success in every repetition, no unintended changes). Scores are means over 24 / 10 / 12 examples, so differences "
         "under about 0.1 are within run-to-run noise.",
     ]
     return "\n".join(lines) + "\n"

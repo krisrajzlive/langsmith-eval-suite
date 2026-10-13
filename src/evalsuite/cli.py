@@ -27,6 +27,16 @@ def _report(results) -> None:
         print(f"  FAIL {metric}: {example}")
 
 
+def _cmd_ops(args) -> int:
+    from .ops.runner import ops_metrics, run_ops
+
+    results = run_ops(prefix=args.prefix, app=args.app, guard=args.guard, repetitions=args.repetitions)
+    print(f"experiment: {results.experiment_name}")
+    for metric, value in sorted(ops_metrics(results).items()):
+        print(f"  {metric:<28} {value:6.3f}")
+    return 0
+
+
 def _cmd_seed(args) -> int:
     for key in DATASET_NAMES:
         print(f"seeded {seed_dataset(key)}")
@@ -152,6 +162,13 @@ def build_parser() -> argparse.ArgumentParser:
             p.add_argument("--update-baseline", action="store_true")
             p.add_argument("--max-drop", type=float, default=GateConfig().max_mean_drop)
         p.set_defaults(fn=fn)
+
+    p = sub.add_parser("ops", help="Evaluate the order-operations agent (no retrieval) on end-state outcomes")
+    p.add_argument("--app", default=None, help="provider:model of the agent")
+    p.add_argument("--guard", default=None)
+    p.add_argument("--prefix", default=None)
+    p.add_argument("--repetitions", type=int, default=None, help="runs per task; more than 1 enables pass^k")
+    p.set_defaults(fn=_cmd_ops)
 
     p = sub.add_parser("calibrate", help="Measure LLM-judge agreement with human labels")
     p.add_argument("--judge", default=None, help="provider:model to calibrate (default: configured judge)")
