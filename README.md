@@ -75,6 +75,13 @@ make regression PROMPT=v1   # gate a candidate against the baseline
 
 Without `make`, use `python -m evalsuite.cli <command>`; see `--help`.
 
+### Agents without retrieval
+
+A second agent, an order-operations assistant with no documents, is evaluated on the state it leaves behind:
+task success against an expected end state, unintended side effects, truthfulness of its own reports, tool and
+trajectory discipline, clarification, fault recovery, and consistency across repetitions (pass^k). See
+[docs/agent-evaluation.md](docs/agent-evaluation.md). Run it with `python -m evalsuite.cli ops --repetitions 3`.
+
 ### Comparing application models
 
 ```bash

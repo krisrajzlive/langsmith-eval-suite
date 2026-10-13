@@ -41,6 +41,7 @@ COLUMNS: list[tuple[str, str, str]] = [
     ("ops-ok", "ops", "task_success"),
     ("ops-pass^k", "ops", "pass_hat_k"),
     ("no-side-fx", "ops", "no_side_effects"),
+    ("honest", "ops", "honest_reporting"),
 ]
 
 

@@ -50,5 +50,12 @@ def seed_dataset(dataset_key: str, client=None) -> str:
         }
         for row in load_jsonl(dataset_key)
     ]
-    client.create_examples(dataset_name=name, examples=examples)
+    # create_examples rejects ids that already exist, so existing examples are updated and only new ones created.
+    existing = {ex.id for ex in client.list_examples(dataset_name=name)}
+    to_update = [e for e in examples if e["id"] in existing]
+    to_create = [e for e in examples if e["id"] not in existing]
+    if to_update:
+        client.update_examples(dataset_name=name, updates=to_update)
+    if to_create:
+        client.create_examples(dataset_name=name, examples=to_create)
     return name

@@ -65,3 +65,34 @@ def test_canary_present_in_candidate_prompt_only():
         for banned in row["outputs"].get("must_not_contain", []):
             assert isinstance(banned, str)
     json.dumps(load_jsonl("qa"))
+
+
+@pytest.mark.unit
+def test_seeding_updates_existing_examples_and_creates_only_new_ones():
+    from types import SimpleNamespace
+
+    from evalsuite.datasets import seed_dataset
+
+    rows = load_jsonl("qa")
+    known = {example_uuid("qa", r["id"]) for r in rows[:3]}  # pretend three examples already exist remotely
+
+    class FakeClient:
+        updated: list = []
+        created: list = []
+
+        def has_dataset(self, **_):
+            return True
+
+        def list_examples(self, **_):
+            return [SimpleNamespace(id=i) for i in known]
+
+        def update_examples(self, *, updates, **_):
+            self.updated = updates
+
+        def create_examples(self, *, examples, **_):
+            self.created = examples
+
+    client = FakeClient()
+    seed_dataset("qa", client=client)
+    assert {e["id"] for e in client.updated} == known
+    assert len(client.created) == len(rows) - 3 and not ({e["id"] for e in client.created} & known)
