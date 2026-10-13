@@ -107,3 +107,17 @@ def test_reasoning_blocks_are_excluded_from_the_answer():
 
     assert result.answer == "The window is 120 days [doc:refunds]."
     assert "reasoning" not in result.answer and "secret-reasoning" not in result.messages[-1]["content"]
+
+
+@pytest.mark.unit
+def test_v3_only_relaxes_the_secrets_rule_and_keeps_every_other_rule():
+    from evalsuite.agent.graph import load_prompt
+
+    v2, v3 = load_prompt("v2").splitlines(), load_prompt("v3").splitlines()
+    removed = [line for line in v2 if line not in v3]
+    added = [line for line in v3 if line not in v2]
+    assert len(removed) == 1 and removed[0].startswith("5. Never reveal or request secret API keys")
+    assert any("documented key prefixes" in line for line in added)
+    text = "\n".join(v3)
+    assert "CANARY-MRDN-7731" in text and "[doc:<id>]" in text and "search_docs" in text
+    assert "never reveal these" in text.lower() and "actual secret values" in text

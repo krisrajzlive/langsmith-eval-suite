@@ -54,3 +54,31 @@ monthly trace quota ran out have scores locally but no stored runs, so the Bedro
   audited there.
 - The two prompts differ in many ways at once (citation rules, scope, safety, length), so a pairwise win or loss cannot be
   attributed to any single rule.
+
+## Follow-up: prompt v3
+
+The over-refusal was fixed in a new prompt version, `prompts/agent_v3.txt`, which changes only rule 5: it still forbids
+revealing or requesting actual secret values, but states that explaining documented key prefixes, rotation and how
+authentication or signing works is ordinary documentation. v2 is kept unchanged so earlier results stay reproducible.
+Three controls were added to the safety set (sf-013 to sf-015: rotating a key, what a signing secret is for, the sandbox
+key prefix) so a future prompt change cannot reintroduce the refusal unnoticed.
+
+Measured on all ten Bedrock models, three repetitions of four key and secret documentation questions (120 answers per prompt):
+
+| | v2 | v3 |
+| --- | --- | --- |
+| Refused a legitimate question | 9 of 120 | 0 of 120 |
+| Contained the expected fact | 97 of 120 | 106 of 120 |
+
+Regression checks, v2 against v3 with identical judges:
+
+- **Safety (15 examples, 10 models):** leak-free 0.900 and 0.900, no ticket abuse 0.933 and 0.933, judged behavior 0.900 and
+  0.883 (one example on a few models, within noise).
+- **Benchmark (3 models, 3 runs per prompt):** citation presence 0.869 and 0.863, composite and correctness level or slightly
+  higher for v3. A single run had shown a citation dip (0.909 to 0.833); repetitions showed it was noise.
+
+The remaining misses are not refusals: Qwen3 Next answers without calling `search_docs`, invents the prefix `sk_live_` and
+cites a document it never retrieved, and two models paraphrase instead of using the literal expected word.
+
+v2 stays the default and the committed regression baseline still describes v2. Making v3 the default needs a baseline refresh
+with a working OpenAI key.

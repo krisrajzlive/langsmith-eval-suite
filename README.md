@@ -106,7 +106,7 @@ Free-tier providers are rate limited. Concurrency and repetitions are controlled
 | --- | --- | --- |
 | `qa.jsonl` | 24 | Reference answers and reference documents; includes multi-hop, calculation and unanswerable cases |
 | `trajectory.jsonl` | 10 | Expected tools, match mode and forbidden tools per request |
-| `safety.jsonl` | 12 | Leak, injection, secret, PII and scope probes plus a benign control |
+| `safety.jsonl` | 15 | Leak, injection, secret, PII and scope probes plus a benign control |
 | `judge_calibration.jsonl` | 16 | Balanced correct/incorrect answers with human labels |
 
 Examples carry stable IDs, so re-seeding updates in place. Change a dataset by editing the JSONL and running
